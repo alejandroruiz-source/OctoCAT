@@ -1,50 +1,46 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+# OctoCAT Supply Chain Constitution
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### I. Library-First Architecture
+Every feature must be designed as a self-contained, reusable library with clear separation of concerns. Libraries must be independently testable, comprehensively documented, and have a well-defined API contract. This maximizes code reusability and enables teams to compose functionality with confidence.
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+### II. Test-Driven Development (Non-Negotiable)
+TDD is mandatory for all feature development: tests must be written first, approved by stakeholders, and initially fail before implementation begins. The Red-Green-Refactor cycle is strictly enforced. Contract tests must be written before any implementation to establish API expectations and ensure contracts are honored.
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+### III. Integration Tests Over Mocks
+Integration testing using real SQLite databases is required for data-layer validation. Mock-based testing is insufficient for supply chain operations where data consistency is critical. Real database interactions reveal integration issues that mocks cannot surface.
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+### IV. Simplicity Over Abstraction
+Prefer direct framework usage over unnecessary abstraction layers. Use TypeScript and framework APIs as they are intended. Avoid creating custom abstractions that add complexity without clear benefit. Code clarity and maintainability take precedence over theoretical elegance.
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+### V. REST API with OpenAPI Standards
+All services expose functionality through well-designed REST APIs documented with OpenAPI/Swagger specifications. This ensures machine-readable contracts, consistency across services, and enables API-first development workflows.
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+## Technology Stack
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+- **Language**: TypeScript for type safety and developer confidence
+- **API Style**: RESTful with OpenAPI/Swagger documentation
+- **Testing**: Contract tests (before implementation), integration tests with real SQLite
+- **Framework Integration**: Direct use of established frameworks; minimize custom middleware
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
+## Dependency Management
 
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+Dependencies must be deliberately chosen and regularly evaluated. Before adding any external dependency:
+1. Confirm it solves a real problem that cannot be efficiently solved with existing dependencies
+2. Evaluate maintenance status, community support, and security record
+3. Document the justification in commit messages and architecture decisions
+4. Periodically audit dependencies to remove unused ones
+
+Maintain a minimal, focused set of dependencies to reduce attack surface and cognitive load.
 
 ## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+This constitution supersedes all other development guidelines. All pull requests and code reviews MUST verify compliance with these principles. Deviations require explicit documentation and exception approval from the team lead.
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+Amendments to this constitution require documentation of the rationale, stakeholder review, and migration planning for affected code and tests. Version numbering follows semantic versioning:
+- MAJOR: Backward-incompatible principle removals or fundamental redefinitions
+- MINOR: New principles or significant expansions to existing guidance
+- PATCH: Clarifications, wording refinements, or non-semantic improvements
+
+**Version**: 1.0.0 | **Ratified**: 2026-06-10 | **Last Amended**: 2026-06-10
