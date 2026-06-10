@@ -59,7 +59,8 @@ Purchase orders exceeding $10,000 require manager approval before proceeding to 
 2. **Given** a draft PO with total amount $10,000 or greater, **When** submitted, **Then** the PO status becomes "Awaiting Approval" and a notification is sent to designated approvers.
 3. **Given** a PO awaiting approval, **When** an approver views it, **Then** they see all PO details, supplier information, and line items with a clear approval/rejection interface.
 4. **Given** a PO awaiting approval, **When** an approver approves it, **Then** the status changes to Approved and the supplier is notified of approval.
-5. **Given** a PO awaiting approval, **When** an approver rejects it, **Then** the status changes to Cancelled and both buyer and supplier are notified of the rejection.
+5. **Given** a PO awaiting approval, **When** an approver rejects it with a reason, **Then** the status changes to Revision Required, the buyer is notified with the rejection reason, and the supplier is notified that the PO is on hold.
+6. **Given** a PO in Revision Required status, **When** the buyer edits it and resubmits, **Then** the PO re-enters the approval workflow (status returns to Awaiting Approval) with the updated details.
 
 ---
 
@@ -74,7 +75,7 @@ Once a PO is approved (or submitted if under $10,000), buyers and suppliers trac
 **Acceptance Scenarios**:
 
 1. **Given** an approved PO (or submitted PO under $10,000), **When** the supplier marks it as Fulfilled, **Then** the PO status changes to Fulfilled and the fulfillment timestamp is recorded.
-2. **Given** any PO, **When** a user views the PO detail page, **Then** a status history timeline displays all status changes with timestamps (Draft → Submitted → [Awaiting Approval/Approved] → Fulfilled or Cancelled).
+2. **Given** any PO, **When** a user views the PO detail page, **Then** a status history timeline displays all status changes with timestamps (Draft → Submitted → [Awaiting Approval → Revision Required → Awaiting Approval (resubmit cycle)] → Approved → Fulfilled, or Cancelled at any terminal point).
 3. **Given** a fulfilled PO, **When** a buyer views it, **Then** fulfillment details are displayed (delivery date, received quantity confirmation if applicable).
 4. **Given** a PO in any status, **When** a user attempts to view it, **Then** they only see statuses and actions appropriate to their role (buyer, supplier, approver).
 
@@ -99,23 +100,24 @@ Once a PO is approved (or submitted if under $10,000), buyers and suppliers trac
 - **FR-005**: System MUST allow buyers to delete line items from draft POs.
 - **FR-006**: System MUST allow buyers to cancel draft POs, changing status to Cancelled and preventing further edits.
 - **FR-007**: System MUST persist PO state including all line items, timestamps, and status through submission.
-- **FR-008**: System MUST enable buyers to submit draft POs to suppliers.
+- **FR-008**: System MUST enable buyers to submit draft POs to suppliers; submission requires an expected delivery date to be set on the PO.
 - **FR-009**: System MUST change PO status from Draft to Submitted upon successful submission.
-- **FR-010**: System MUST send supplier notifications upon PO submission containing PO number, total amount, buyer/branch info, and line items.
+- **FR-010**: System MUST send supplier notifications upon PO submission containing PO number, total amount, buyer/branch info, line items, and expected delivery date.
 - **FR-011**: System MUST prevent editing of submitted POs (read-only after submission).
 - **FR-012**: System MUST route POs with total amount ≥ $10,000 to approval workflow upon submission (status becomes "Awaiting Approval").
-- **FR-013**: System MUST allow designated approvers to view pending approval POs with full details and take approve/reject actions.
+- **FR-013**: System MUST allow any user with the system-wide "approver" role to view all pending approval POs with full details and take approve/reject actions.
 - **FR-014**: System MUST change status to Approved when an approver approves a high-value PO.
-- **FR-015**: System MUST change status to Cancelled and notify buyer and supplier when an approver rejects a high-value PO.
+- **FR-015**: System MUST change status to Revision Required (not Cancelled) when an approver rejects a high-value PO; the approver MUST provide a rejection reason; the buyer is notified with the reason and may edit and resubmit the PO, re-entering the Awaiting Approval state.
+- **FR-015a**: System MUST notify the supplier that the PO is on hold when a PO enters Revision Required status.
 - **FR-016**: System MUST send approval/rejection notifications to relevant parties.
 - **FR-017**: System MUST allow suppliers to mark POs as Fulfilled and record fulfillment timestamp.
 - **FR-018**: System MUST display PO status history with all transitions and timestamps for audit purposes.
-- **FR-019**: System MUST enforce role-based access control (buyers view/edit own POs, suppliers view submitted POs, approvers view pending approvals).
+- **FR-019**: System MUST enforce role-based access control (buyers view/edit own POs, suppliers view submitted POs addressed to them, approvers with the system-wide "approver" role view all pending approvals regardless of branch).
 - **FR-020**: System MUST track all PO state changes for compliance and reporting purposes.
 
 ### Key Entities
 
-- **Purchase Order (PO)**: Represents a complete order with unique identifier, status (Draft/Submitted/Awaiting Approval/Approved/Fulfilled/Cancelled), buyer (user), branch, supplier, creation date, submission date, approval date, fulfillment date, total amount, and notes.
+- **Purchase Order (PO)**: Represents a complete order with unique identifier, status (Draft/Submitted/Awaiting Approval/Approved/Fulfilled/Cancelled/Revision Required), buyer (user), branch, supplier, creation date, submission date, approval date, fulfillment date, expected delivery date (buyer-specified, required at submission), total amount, and notes.
 - **Line Item**: Represents a single product order within a PO with product ID/name, quantity, unit price, extended price (calculated), and line number.
 - **Supplier**: External party receiving POs with name, contact information, and notification preferences.
 - **Branch**: Company location where buyer operates, with unique identifier and location info.
@@ -130,10 +132,20 @@ Once a PO is approved (or submitted if under $10,000), buyers and suppliers trac
 - **SC-002**: PO submission triggers supplier notification within 10 seconds.
 - **SC-003**: High-value POs (≥$10,000) are correctly routed to approvers; low-value POs skip approval step.
 - **SC-004**: 100% of submitted POs maintain data integrity through all status transitions (no data loss or corruption).
-- **SC-005**: Approvers receive and can act on approval notifications within SLA (NEEDS CLARIFICATION: approval SLA not specified - recommend 24 business hours).
+- **SC-005**: Approvers receive and can act on approval notifications within 24 business hours of PO submission; unanswered approvals after this window are escalated.
 - **SC-006**: System correctly calculates PO totals for 100% of POs with no arithmetic errors.
 - **SC-007**: Role-based access control prevents unauthorized access: buyers cannot edit submitted POs, suppliers cannot create POs, approvers cannot submit POs.
 - **SC-008**: Audit trail captures all PO state changes with 100% accuracy for compliance reporting.
+
+## Clarifications
+
+### Session 2026-06-10
+
+- Q: What is the approval SLA for high-value POs? → A: 24 business hours
+- Q: What happens if the notification service fails during PO submission? → A: Proceed with submission; queue notification for async retry
+- Q: How are designated approvers for high-value POs determined? → A: System-wide approver role — any user with the "approver" role can approve any PO
+- Q: What is the "delivery expectations" field referenced in supplier notifications? → A: Single expected delivery date on the PO
+- Q: When an approver rejects a high-value PO, can the buyer revise and resubmit? → A: Yes — PO enters "Revision Required" status; buyer revises and resubmits
 
 ## Assumptions
 
@@ -142,10 +154,10 @@ Once a PO is approved (or submitted if under $10,000), buyers and suppliers trac
 - **Supplier management**: Suppliers already exist in the system with contact information and notification preferences configured; PO feature only references them.
 - **Branch management**: Branches are already defined in the system; buyers select from existing branches.
 - **Approval threshold**: The $10,000 approval threshold is a fixed business rule for this MVP; threshold changes would require system updates (not configurable UI).
-- **Notifications**: Email or messaging infrastructure is available; system queues notifications; actual delivery is handled by notification service.
+- **Notifications**: Email or messaging infrastructure is available; system queues notifications for async delivery by the notification service. If the notification service is unavailable at submission time, the PO submission succeeds and the notification is retried asynchronously — submission is never blocked or rolled back due to a notification failure.
 - **Database**: Real SQLite database will be used for PO persistence per constitution principle (no mocks).
 - **Draft auto-save**: POs are not automatically saved; buyers must explicitly save drafts (reduces database churn, avoids conflicts).
 - **Supplier notification content**: Suppliers receive notifications with core PO details; detailed PO inspection happens through a supplier portal or PO viewing endpoint.
 - **Initial MVP scope**: Reporting and analytics features are out of scope for v1; focus is on core PO lifecycle (create, submit, approve, fulfill).
 - **Soft delete**: Cancelled POs remain in system for audit trail; they are never permanently deleted.
-- **No PO modifications after submission**: Submitted POs cannot be edited; cancellation is the only option post-submission (simplicity principle from constitution).
+- **PO edit lifecycle**: Submitted POs cannot be edited while in Submitted, Awaiting Approval, Approved, Fulfilled, or Cancelled status. Exception: a PO returned to Revision Required by an approver may be edited and resubmitted by the buyer; this is the only post-submission edit path.

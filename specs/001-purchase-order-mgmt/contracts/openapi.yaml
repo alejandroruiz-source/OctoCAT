@@ -1,0 +1,901 @@
+openapi: 3.0.3
+
+info:
+  title: Purchase Order Management API
+  version: 1.0.0
+  description: |
+    REST API for the OctoCAT Purchase Order Management System.
+
+    ## Authentication
+    All endpoints require a Bearer JWT. The token must contain `userId` and `role`
+    claims. Valid roles: `BUYER`, `SUPPLIER`, `APPROVER`.
+
+    ## Money
+    All monetary values are **integer USD cents** (e.g., `1000000` = $10,000.00).
+
+    ## Status Transitions
+    See `data-model.md` for the complete state machine. Invalid transitions return
+    `409 INVALID_STATUS_TRANSITION`.
+
+servers:
+  - url: /api/v1
+    description: API v1
+
+security:
+  - BearerAuth: []
+
+tags:
+  - name: purchase-orders
+    description: PO lifecycle management
+  - name: line-items
+    description: Line items within a PO (nested resource)
+  - name: approvals
+    description: Approve or reject high-value POs
+
+paths:
+
+  # ─── Purchase Orders ────────────────────────────────────────────────────────
+
+  /purchase-orders:
+    post:
+      operationId: createPurchaseOrder
+      tags: [purchase-orders]
+      summary: Create a draft PO
+      description: Creates a new PO in DRAFT status. Caller must have role BUYER.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePurchaseOrderRequest'
+      responses:
+        '201':
+          description: PO created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PurchaseOrderResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+    get:
+      operationId: listPurchaseOrders
+      tags: [purchase-orders]
+      summary: List POs visible to the caller
+      description: |
+        Returns POs filtered by the caller's role:
+        - BUYER: only their own POs
+        - SUPPLIER: only POs addressed to them (status ≠ DRAFT)
+        - APPROVER: all POs (filterable by status)
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: array
+            items:
+              $ref: '#/components/schemas/PurchaseOrderStatus'
+          style: form
+          explode: true
+          description: Filter by one or more statuses
+        - name: supplierId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: Filter by supplier (APPROVER only)
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: Paginated list of POs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PurchaseOrderListResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /purchase-orders/{poId}:
+    parameters:
+      - $ref: '#/components/parameters/poId'
+
+    get:
+      operationId: getPurchaseOrder
+      tags: [purchase-orders]
+      summary: Get a PO with full details
+      description: |
+        Returns the PO including all line items and status history.
+        Response includes `lockedBy` and `lockedAt` if currently locked for editing.
+        Role-based visibility is enforced (buyers see own POs, suppliers see addressed POs).
+      responses:
+        '200':
+          description: PO detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PurchaseOrderDetailResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    patch:
+      operationId: updatePurchaseOrder
+      tags: [purchase-orders]
+      summary: Update PO metadata
+      description: |
+        Updates PO-level fields (notes, expectedDeliveryDate).
+        Only allowed when status is DRAFT or REVISION_REQUIRED.
+        Caller must be the PO's buyer and must hold the edit lock.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePurchaseOrderRequest'
+      responses:
+        '200':
+          description: Updated PO
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PurchaseOrderResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/InvalidStatusTransition'
+        '423':
+          $ref: '#/components/responses/Locked'
+
+  /purchase-orders/{poId}/lock:
+    parameters:
+      - $ref: '#/components/parameters/poId'
+
+    post:
+      operationId: acquireEditLock
+      tags: [purchase-orders]
+      summary: Acquire exclusive edit lock
+      description: |
+        Acquires the pessimistic edit lock for this PO.
+        Returns 409 if another buyer currently holds an active lock.
+        Lock expires automatically after 30 minutes.
+        Only allowed when status is DRAFT or REVISION_REQUIRED.
+        Caller must be the PO's buyer.
+      responses:
+        '200':
+          description: Lock acquired
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LockResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: PO is already locked by another user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: PO_LOCKED
+                message: This PO is currently locked for editing by another user.
+
+    delete:
+      operationId: releaseEditLock
+      tags: [purchase-orders]
+      summary: Release edit lock
+      description: |
+        Releases the edit lock held by the calling buyer.
+        Returns 204 whether or not a lock was held (idempotent).
+      responses:
+        '204':
+          description: Lock released
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /purchase-orders/{poId}/submit:
+    parameters:
+      - $ref: '#/components/parameters/poId'
+
+    post:
+      operationId: submitPurchaseOrder
+      tags: [purchase-orders]
+      summary: Submit PO (first submission or resubmission after revision)
+      description: |
+        Submits the PO to the supplier. Valid from DRAFT or REVISION_REQUIRED status.
+
+        **Routing logic**:
+        - `totalCents < 1000000` ($10,000): status → SUBMITTED; supplier notified
+        - `totalCents ≥ 1000000`: status → AWAITING_APPROVAL; approvers notified
+
+        **Resubmission** (from REVISION_REQUIRED): always routes to AWAITING_APPROVAL
+        regardless of total (re-enters the approval workflow).
+
+        Requires at least one line item and a non-null future `expectedDeliveryDate`.
+        The edit lock is automatically released on successful submit.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmitPurchaseOrderRequest'
+      responses:
+        '200':
+          description: PO submitted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PurchaseOrderResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/InvalidStatusTransition'
+        '422':
+          description: Business rule violation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                noLineItems:
+                  summary: No line items
+                  value:
+                    error: INSUFFICIENT_LINE_ITEMS
+                    message: A PO must have at least one line item before submission.
+                missingDeliveryDate:
+                  summary: Missing delivery date
+                  value:
+                    error: MISSING_DELIVERY_DATE
+                    message: expectedDeliveryDate is required for submission.
+
+  /purchase-orders/{poId}/cancel:
+    parameters:
+      - $ref: '#/components/parameters/poId'
+
+    post:
+      operationId: cancelPurchaseOrder
+      tags: [purchase-orders]
+      summary: Cancel a PO
+      description: |
+        Cancels the PO. Valid from DRAFT or REVISION_REQUIRED status only.
+        Caller must be the PO's buyer.
+        Cancelled POs are retained for audit trail (soft delete).
+      responses:
+        '200':
+          description: PO cancelled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PurchaseOrderResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/InvalidStatusTransition'
+
+  /purchase-orders/{poId}/fulfill:
+    parameters:
+      - $ref: '#/components/parameters/poId'
+
+    post:
+      operationId: fulfillPurchaseOrder
+      tags: [purchase-orders]
+      summary: Mark PO as fulfilled
+      description: |
+        Marks the PO as fulfilled. Valid from SUBMITTED or APPROVED status.
+        Caller must have role SUPPLIER and be the addressee of the PO.
+      responses:
+        '200':
+          description: PO fulfilled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PurchaseOrderResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/InvalidStatusTransition'
+
+  /purchase-orders/{poId}/history:
+    parameters:
+      - $ref: '#/components/parameters/poId'
+
+    get:
+      operationId: getPurchaseOrderHistory
+      tags: [purchase-orders]
+      summary: Get PO status history
+      description: Returns the full status transition log ordered by `changedAt` ascending.
+      responses:
+        '200':
+          description: Status history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/StatusHistoryEntry'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ─── Line Items ─────────────────────────────────────────────────────────────
+
+  /purchase-orders/{poId}/line-items:
+    parameters:
+      - $ref: '#/components/parameters/poId'
+
+    post:
+      operationId: addLineItem
+      tags: [line-items]
+      summary: Add a line item to a PO
+      description: |
+        Adds a line item to the PO. Only allowed when status is DRAFT or REVISION_REQUIRED.
+        `extendedPriceCents` is computed by the server (`quantity × unitPriceCents`).
+        PO `totalCents` is recalculated atomically.
+        Caller must be the PO's buyer and must hold the edit lock.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddLineItemRequest'
+      responses:
+        '201':
+          description: Line item added
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LineItemResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/InvalidStatusTransition'
+        '423':
+          $ref: '#/components/responses/Locked'
+
+  /purchase-orders/{poId}/line-items/{lineItemId}:
+    parameters:
+      - $ref: '#/components/parameters/poId'
+      - $ref: '#/components/parameters/lineItemId'
+
+    patch:
+      operationId: updateLineItem
+      tags: [line-items]
+      summary: Update a line item
+      description: |
+        Updates quantity and/or unitPriceCents. `extendedPriceCents` is recomputed.
+        PO `totalCents` is recalculated atomically.
+        Only allowed when status is DRAFT or REVISION_REQUIRED.
+        Caller must hold the edit lock.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateLineItemRequest'
+      responses:
+        '200':
+          description: Updated line item
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LineItemResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/InvalidStatusTransition'
+        '423':
+          $ref: '#/components/responses/Locked'
+
+    delete:
+      operationId: deleteLineItem
+      tags: [line-items]
+      summary: Delete a line item
+      description: |
+        Removes the line item and recalculates PO total.
+        Only allowed when status is DRAFT or REVISION_REQUIRED.
+        Caller must hold the edit lock.
+      responses:
+        '204':
+          description: Line item deleted
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/InvalidStatusTransition'
+        '423':
+          $ref: '#/components/responses/Locked'
+
+  # ─── Approvals ──────────────────────────────────────────────────────────────
+
+  /purchase-orders/{poId}/approve:
+    parameters:
+      - $ref: '#/components/parameters/poId'
+
+    post:
+      operationId: approvePurchaseOrder
+      tags: [approvals]
+      summary: Approve a high-value PO
+      description: |
+        Records an approval decision. Only valid when PO status is AWAITING_APPROVAL.
+        Caller must have role APPROVER.
+        Status transitions to APPROVED; supplier is notified.
+      responses:
+        '200':
+          description: Approval recorded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApprovalResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/InvalidStatusTransition'
+
+  /purchase-orders/{poId}/reject:
+    parameters:
+      - $ref: '#/components/parameters/poId'
+
+    post:
+      operationId: rejectPurchaseOrder
+      tags: [approvals]
+      summary: Reject a high-value PO (sends to Revision Required)
+      description: |
+        Records a rejection decision with a required reason.
+        Only valid when PO status is AWAITING_APPROVAL.
+        Caller must have role APPROVER.
+        Status transitions to REVISION_REQUIRED; buyer is notified with rejection reason;
+        supplier is notified the PO is on hold.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RejectPurchaseOrderRequest'
+      responses:
+        '200':
+          description: Rejection recorded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApprovalResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/InvalidStatusTransition'
+
+# ─── Components ──────────────────────────────────────────────────────────────
+
+components:
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT must contain `userId` (string) and `role` (BUYER | SUPPLIER | APPROVER) claims.
+
+  parameters:
+    poId:
+      name: poId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Purchase Order UUID
+    lineItemId:
+      name: lineItemId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Line Item UUID
+
+  responses:
+    ValidationError:
+      description: Request body failed schema validation
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: VALIDATION_ERROR
+            message: Request body validation failed.
+            details:
+              field: quantity
+              issue: must be >= 1
+    Forbidden:
+      description: Caller's role does not permit this action
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: FORBIDDEN
+            message: Your role does not permit this action.
+    NotFound:
+      description: PO or sub-resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: PO_NOT_FOUND
+            message: Purchase Order not found.
+    InvalidStatusTransition:
+      description: The requested action is not valid for the PO's current status
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: INVALID_STATUS_TRANSITION
+            message: Cannot submit a PO that is not in DRAFT or REVISION_REQUIRED status.
+    Locked:
+      description: PO is locked for editing by another user
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: PO_LOCKED
+            message: This PO is currently locked for editing by another user.
+
+  schemas:
+
+    PurchaseOrderStatus:
+      type: string
+      enum:
+        - DRAFT
+        - SUBMITTED
+        - AWAITING_APPROVAL
+        - APPROVED
+        - FULFILLED
+        - CANCELLED
+        - REVISION_REQUIRED
+
+    # ── Requests ──────────────────────────────────────────────────────────────
+
+    CreatePurchaseOrderRequest:
+      type: object
+      required: [supplierId, branchId]
+      properties:
+        supplierId:
+          type: string
+          format: uuid
+        branchId:
+          type: string
+          format: uuid
+        expectedDeliveryDate:
+          type: string
+          format: date
+          description: ISO 8601 date (YYYY-MM-DD); can also be set at submit time
+          example: '2026-08-01'
+        notes:
+          type: string
+          maxLength: 1000
+          nullable: true
+
+    UpdatePurchaseOrderRequest:
+      type: object
+      minProperties: 1
+      properties:
+        expectedDeliveryDate:
+          type: string
+          format: date
+          description: ISO 8601 date (YYYY-MM-DD)
+          example: '2026-08-15'
+        notes:
+          type: string
+          maxLength: 1000
+          nullable: true
+
+    SubmitPurchaseOrderRequest:
+      type: object
+      required: [expectedDeliveryDate]
+      properties:
+        expectedDeliveryDate:
+          type: string
+          format: date
+          description: Required at submission. Must be a future date (ISO 8601 YYYY-MM-DD).
+          example: '2026-08-01'
+
+    AddLineItemRequest:
+      type: object
+      required: [productId, productName, quantity, unitPriceCents]
+      properties:
+        productId:
+          type: string
+          format: uuid
+        productName:
+          type: string
+          maxLength: 255
+          description: Snapshot of the product name at time of line item creation
+        quantity:
+          type: integer
+          minimum: 1
+        unitPriceCents:
+          type: integer
+          minimum: 1
+          description: Unit price in USD cents (e.g., 5000 = $50.00)
+          example: 5000
+
+    UpdateLineItemRequest:
+      type: object
+      minProperties: 1
+      properties:
+        quantity:
+          type: integer
+          minimum: 1
+        unitPriceCents:
+          type: integer
+          minimum: 1
+          description: Unit price in USD cents
+
+    RejectPurchaseOrderRequest:
+      type: object
+      required: [reason]
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 1000
+          description: Explanation for the rejection; communicated to the buyer
+
+    # ── Responses ─────────────────────────────────────────────────────────────
+
+    PurchaseOrderResponse:
+      type: object
+      required: [id, poNumber, status, buyerId, branchId, supplierId, totalCents, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        poNumber:
+          type: string
+          example: PO-2026-000001
+        status:
+          $ref: '#/components/schemas/PurchaseOrderStatus'
+        buyerId:
+          type: string
+          format: uuid
+        branchId:
+          type: string
+          format: uuid
+        supplierId:
+          type: string
+          format: uuid
+        expectedDeliveryDate:
+          type: string
+          format: date
+          nullable: true
+        totalCents:
+          type: integer
+          minimum: 0
+          description: Sum of all line item extended prices in USD cents
+          example: 1500000
+        notes:
+          type: string
+          nullable: true
+        lockedBy:
+          type: string
+          format: uuid
+          nullable: true
+          description: userId currently holding the edit lock; null if unlocked
+        lockedAt:
+          type: string
+          format: date-time
+          nullable: true
+        approvalDeadline:
+          type: string
+          format: date-time
+          nullable: true
+          description: 24 business hours after submittedAt; only present when status is AWAITING_APPROVAL
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        submittedAt:
+          type: string
+          format: date-time
+          nullable: true
+        approvedAt:
+          type: string
+          format: date-time
+          nullable: true
+        fulfilledAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    PurchaseOrderDetailResponse:
+      allOf:
+        - $ref: '#/components/schemas/PurchaseOrderResponse'
+        - type: object
+          required: [lineItems, statusHistory]
+          properties:
+            lineItems:
+              type: array
+              items:
+                $ref: '#/components/schemas/LineItemResponse'
+            statusHistory:
+              type: array
+              items:
+                $ref: '#/components/schemas/StatusHistoryEntry'
+
+    PurchaseOrderListResponse:
+      type: object
+      required: [items, total, page, limit]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PurchaseOrderResponse'
+        total:
+          type: integer
+          description: Total matching records (for pagination)
+        page:
+          type: integer
+        limit:
+          type: integer
+
+    LineItemResponse:
+      type: object
+      required: [id, purchaseOrderId, lineNumber, productId, productName, quantity, unitPriceCents, extendedPriceCents]
+      properties:
+        id:
+          type: string
+          format: uuid
+        purchaseOrderId:
+          type: string
+          format: uuid
+        lineNumber:
+          type: integer
+          minimum: 1
+        productId:
+          type: string
+          format: uuid
+        productName:
+          type: string
+        quantity:
+          type: integer
+          minimum: 1
+        unitPriceCents:
+          type: integer
+          minimum: 1
+        extendedPriceCents:
+          type: integer
+          minimum: 1
+          description: quantity × unitPriceCents; computed by server
+
+    ApprovalResponse:
+      type: object
+      required: [id, purchaseOrderId, approverId, decision, decidedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        purchaseOrderId:
+          type: string
+          format: uuid
+        approverId:
+          type: string
+          format: uuid
+        decision:
+          type: string
+          enum: [APPROVED, REJECTED]
+        reason:
+          type: string
+          nullable: true
+        decidedAt:
+          type: string
+          format: date-time
+
+    StatusHistoryEntry:
+      type: object
+      required: [id, purchaseOrderId, toStatus, changedById, changedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        purchaseOrderId:
+          type: string
+          format: uuid
+        fromStatus:
+          $ref: '#/components/schemas/PurchaseOrderStatus'
+          nullable: true
+        toStatus:
+          $ref: '#/components/schemas/PurchaseOrderStatus'
+        changedById:
+          type: string
+          format: uuid
+        changedAt:
+          type: string
+          format: date-time
+        note:
+          type: string
+          nullable: true
+
+    LockResponse:
+      type: object
+      required: [lockedBy, lockedAt, expiresAt]
+      properties:
+        lockedBy:
+          type: string
+          format: uuid
+        lockedAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+          description: lockedAt + 30 minutes
+
+    ErrorResponse:
+      type: object
+      required: [error, message]
+      properties:
+        error:
+          type: string
+          description: Machine-readable error code
+          example: INVALID_STATUS_TRANSITION
+        message:
+          type: string
+          description: Human-readable description
+        details:
+          type: object
+          nullable: true
+          additionalProperties: true
+          description: Optional structured details (e.g., validation field errors)
