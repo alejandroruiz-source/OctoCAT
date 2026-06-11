@@ -34,6 +34,7 @@ export function LineItemRow({ item, editable, onEdit, onDelete, isDeleting }: Li
             <Button
               variant="danger"
               size="sm"
+              data-testid={`delete-${item.id}`}
               aria-label="Delete"
               isLoading={isDeleting}
               onClick={() => onDelete?.(item.id)}

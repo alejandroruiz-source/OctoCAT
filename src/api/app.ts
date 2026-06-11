@@ -19,6 +19,7 @@ export async function buildApp(db: DrizzleDB, opts: AppOptions = {}): Promise<Fa
 
   await app.register(cors, {
     origin: process.env.CORS_ORIGIN ?? 'http://localhost:5173',
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     credentials: true,
   })
   await app.register(swaggerPlugin)
