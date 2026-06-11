@@ -10,7 +10,8 @@ async function main(): Promise<void> {
   const db = createDb(DB_PATH)
   runMigrations(db)
 
-  const app = await buildApp(db, { logger: true })
+  const testMode = process.env.AUTH_DISABLED === 'true'
+  const app = await buildApp(db, { logger: true, auth: { testMode } })
 
   try {
     const address = await app.listen({ port: PORT, host: HOST })
