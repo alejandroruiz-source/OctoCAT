@@ -9,11 +9,15 @@ function RoleGuard({ role, children }: { role: string; children: ReactNode }) {
   return <>{children}</>
 }
 
-// Lazy imports — populated as each phase is implemented
+// Lazy imports
 const POListPage = () => import('./pages/buyer/POListPage').then((m) => ({ default: m.POListPage }))
 const POCreatePage = () => import('./pages/buyer/POCreatePage').then((m) => ({ default: m.POCreatePage }))
 const PODetailPage = () => import('./pages/buyer/PODetailPage').then((m) => ({ default: m.PODetailPage }))
 const POSubmitPage = () => import('./pages/buyer/POSubmitPage').then((m) => ({ default: m.POSubmitPage }))
+const ApprovalQueuePage = () => import('./pages/approver/ApprovalQueuePage').then((m) => ({ default: m.ApprovalQueuePage }))
+const ApprovalDetailPage = () => import('./pages/approver/ApprovalDetailPage').then((m) => ({ default: m.ApprovalDetailPage }))
+const SupplierPOListPage = () => import('./pages/supplier/SupplierPOListPage').then((m) => ({ default: m.SupplierPOListPage }))
+const SupplierPODetailPage = () => import('./pages/supplier/SupplierPODetailPage').then((m) => ({ default: m.SupplierPODetailPage }))
 
 import { lazy, Suspense } from 'react'
 
@@ -21,6 +25,10 @@ const LazyPOList = lazy(POListPage)
 const LazyPOCreate = lazy(POCreatePage)
 const LazyPODetail = lazy(PODetailPage)
 const LazyPOSubmit = lazy(POSubmitPage)
+const LazyApprovalQueue = lazy(ApprovalQueuePage)
+const LazyApprovalDetail = lazy(ApprovalDetailPage)
+const LazySupplierPOList = lazy(SupplierPOListPage)
+const LazySupplierPODetail = lazy(SupplierPODetailPage)
 
 function RootRedirect() {
   const { user } = useAuth()
@@ -76,7 +84,40 @@ export const router = createBrowserRouter([
       </RoleGuard>
     ),
   },
-  // Approver / Supplier routes to be added in later phases
+  // Approver routes
+  {
+    path: '/approver/queue',
+    element: (
+      <RoleGuard role="APPROVER">
+        <PageWrapper><LazyApprovalQueue /></PageWrapper>
+      </RoleGuard>
+    ),
+  },
+  {
+    path: '/approver/queue/:poId',
+    element: (
+      <RoleGuard role="APPROVER">
+        <PageWrapper><LazyApprovalDetail /></PageWrapper>
+      </RoleGuard>
+    ),
+  },
+  // Supplier routes
+  {
+    path: '/supplier/po',
+    element: (
+      <RoleGuard role="SUPPLIER">
+        <PageWrapper><LazySupplierPOList /></PageWrapper>
+      </RoleGuard>
+    ),
+  },
+  {
+    path: '/supplier/po/:poId',
+    element: (
+      <RoleGuard role="SUPPLIER">
+        <PageWrapper><LazySupplierPODetail /></PageWrapper>
+      </RoleGuard>
+    ),
+  },
   {
     path: '*',
     element: <div className="p-8 text-center text-gray-500">Page not found</div>,

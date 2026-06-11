@@ -107,3 +107,56 @@ describe('PODetailPage', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: /submit/i })).toBeInTheDocument())
   })
 })
+
+describe('StatusHistory', () => {
+  const HISTORY = [
+    {
+      id: 'hist-001',
+      purchaseOrderId: 'po-001',
+      fromStatus: null,
+      toStatus: 'DRAFT',
+      changedById: 'buyer-001',
+      changedAt: '2026-06-10T09:00:00Z',
+      note: null,
+    },
+    {
+      id: 'hist-002',
+      purchaseOrderId: 'po-001',
+      fromStatus: 'DRAFT',
+      toStatus: 'SUBMITTED',
+      changedById: 'buyer-001',
+      changedAt: '2026-06-10T10:00:00Z',
+      note: null,
+    },
+    {
+      id: 'hist-003',
+      purchaseOrderId: 'po-001',
+      fromStatus: 'SUBMITTED',
+      toStatus: 'REVISION_REQUIRED',
+      changedById: 'approver-001',
+      changedAt: '2026-06-10T11:00:00Z',
+      note: 'Budget not authorized',
+    },
+  ]
+
+  it('renders history entries oldest-first', async () => {
+    setupPOHandler(makePO('REVISION_REQUIRED', { statusHistory: HISTORY }))
+    renderWithProviders(<PODetailPage />, { path: '/buyer/po/po-001', routePattern: '/buyer/po/:poId' })
+    await waitFor(() => expect(screen.getAllByText(/buyer-001/).length).toBeGreaterThan(0))
+    const actors = screen.getAllByText(/buyer-001|approver-001/)
+    expect(actors[0]).toHaveTextContent('buyer-001')
+  })
+
+  it('displays note when non-null', async () => {
+    // Use SUBMITTED status to avoid the rejection banner also showing the note
+    setupPOHandler(makePO('SUBMITTED', { statusHistory: HISTORY }))
+    renderWithProviders(<PODetailPage />, { path: '/buyer/po/po-001', routePattern: '/buyer/po/:poId' })
+    await waitFor(() => expect(screen.getByText('Budget not authorized')).toBeInTheDocument())
+  })
+
+  it('shows "No status history yet" when entries is empty', async () => {
+    setupPOHandler(makePO('DRAFT', { statusHistory: [] }))
+    renderWithProviders(<PODetailPage />, { path: '/buyer/po/po-001', routePattern: '/buyer/po/:poId' })
+    await waitFor(() => expect(screen.getByText(/no status history yet/i)).toBeInTheDocument())
+  })
+})

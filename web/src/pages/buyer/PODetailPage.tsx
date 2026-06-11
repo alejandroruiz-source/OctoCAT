@@ -9,6 +9,7 @@ import { LineItemEditor, type LineItemDraft } from '../../components/po/LineItem
 import { Modal } from '../../components/ui/Modal'
 import { Button } from '../../components/ui/Button'
 import { ErrorBanner } from '../../components/ui/ErrorBanner'
+import { StatusHistory } from '../../components/po/StatusHistory'
 import { centsToDisplay, formatDateTime, lockExpiresAt } from '../../lib/formatters'
 import { isEditable } from '../../lib/constants'
 import type { LineItemResponse } from '../../api/types'
@@ -182,6 +183,12 @@ export function PODetailPage() {
                 Total: {centsToDisplay(po.totalCents)}
               </p>
             </div>
+          </div>
+
+          {/* Status history */}
+          <div>
+            <h2 className="mb-3 text-base font-semibold text-gray-900">Status History</h2>
+            <StatusHistory entries={po.statusHistory ?? []} />
           </div>
 
           {/* Actions */}

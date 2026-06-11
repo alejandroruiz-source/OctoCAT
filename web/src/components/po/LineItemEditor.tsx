@@ -19,7 +19,7 @@ interface LineItemEditorProps {
 }
 
 export function LineItemEditor({ initial, onSave, onCancel, isLoading }: LineItemEditorProps) {
-  const [productId, setProductId] = useState(initial?.productId ?? '')
+  const [productId] = useState(initial?.productId ?? '')
   const [productName, setProductName] = useState(initial?.productName ?? '')
   const [quantityStr, setQuantityStr] = useState(String(initial?.quantity ?? ''))
   const [unitPriceStr, setUnitPriceStr] = useState(

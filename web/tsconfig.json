@@ -17,7 +17,8 @@
     "noFallthroughCasesInSwitch": true,
     "paths": {
       "~backend/*": ["../src/lib/models/*"]
-    }
+    },
+    "types": ["vitest/globals"]
   },
   "include": ["src", "tests"]
 }

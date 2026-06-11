@@ -116,17 +116,17 @@
 
 ### Tests for US3 (TDD â€” write first, must fail before T049+)
 
-- [ ] T043 [US3] Write contract test for `ApprovalQueuePage` in `web/tests/contract/ApprovalQueuePage.contract.test.tsx`: (1) renders only AWAITING_APPROVAL POs; (2) overdue POs (approvalDeadline in past) have visual distinction; (3) "No POs awaiting approval" when queue is empty; (4) clicking a row navigates to detail
-- [ ] T044 [P] [US3] Write contract test for `ApprovalDetailPage` in `web/tests/contract/ApprovalDetailPage.contract.test.tsx`: (1) Approve and Reject buttons present; (2) Reject opens reason input; (3) Reject submit disabled when reason is empty; (4) Approve shows confirmation before calling API
-- [ ] T045 [P] [US3] Write Playwright approver flow test in `web/tests/integration/approver.flow.test.ts`: as APPROVER â†’ open queue â†’ PO from buyer submit visible â†’ approve first PO â†’ disappears from queue, status Approved; reject second PO with reason â†’ disappears from queue, status Revision Required
+- [x] T043 [US3] Write contract test for `ApprovalQueuePage` in `web/tests/contract/ApprovalQueuePage.contract.test.tsx`: (1) renders only AWAITING_APPROVAL POs; (2) overdue POs (approvalDeadline in past) have visual distinction; (3) "No POs awaiting approval" when queue is empty; (4) clicking a row navigates to detail
+- [x] T044 [P] [US3] Write contract test for `ApprovalDetailPage` in `web/tests/contract/ApprovalDetailPage.contract.test.tsx`: (1) Approve and Reject buttons present; (2) Reject opens reason input; (3) Reject submit disabled when reason is empty; (4) Approve shows confirmation before calling API
+- [x] T045 [P] [US3] Write Playwright approver flow test in `web/tests/integration/approver.flow.test.ts`: as APPROVER â†’ open queue â†’ PO from buyer submit visible â†’ approve first PO â†’ disappears from queue, status Approved; reject second PO with reason â†’ disappears from queue, status Revision Required
 
 ### Implementation for US3
 
-- [ ] T046 [P] [US3] Implement approval API client functions in `web/src/api/approvals.ts`: `approve(poId): Promise<ApprovalResponse>`, `reject(poId, reason: string): Promise<ApprovalResponse>` â€” typed against `~backend/approval`
-- [ ] T047 [US3] Implement `useApprovals` hooks in `web/src/hooks/useApprovals.ts`: `useApprovalQueue()` query with `refetchInterval: 10_000` and status=AWAITING_APPROVAL filter; `useApprovePo` mutation (invalidates queue + detail); `useRejectPo` mutation (invalidates queue + detail)
-- [ ] T048 [P] [US3] Implement `ApprovalQueuePage` in `web/src/pages/approver/ApprovalQueuePage.tsx`: `useApprovalQueue` query; `Table` with `POStatusBadge`, buyer info, total, approvalDeadline; overdue rows get amber background or "Overdue" label; empty state; row click navigates to detail
-- [ ] T049 [US3] Implement `ApprovalDetailPage` in `web/src/pages/approver/ApprovalDetailPage.tsx`: full PO detail (read-only); approval deadline display; Approve button â†’ `Modal` confirmation â†’ `useApprovePo`; Reject button â†’ inline reason `<textarea>` (required, min 1 char) â†’ `useRejectPo`; on success navigate back to queue
-- [ ] T050 [US3] Add approver routes to `web/src/router.tsx`: `/approver/queue` â†’ `ApprovalQueuePage`, `/approver/queue/:poId` â†’ `ApprovalDetailPage`
+- [x] T046 [P] [US3] Implement approval API client functions in `web/src/api/approvals.ts`: `approve(poId): Promise<ApprovalResponse>`, `reject(poId, reason: string): Promise<ApprovalResponse>` â€” typed against `~backend/approval`
+- [x] T047 [US3] Implement `useApprovals` hooks in `web/src/hooks/useApprovals.ts`: `useApprovalQueue()` query with `refetchInterval: 10_000` and status=AWAITING_APPROVAL filter; `useApprovePo` mutation (invalidates queue + detail); `useRejectPo` mutation (invalidates queue + detail)
+- [x] T048 [P] [US3] Implement `ApprovalQueuePage` in `web/src/pages/approver/ApprovalQueuePage.tsx`: `useApprovalQueue` query; `Table` with `POStatusBadge`, buyer info, total, approvalDeadline; overdue rows get amber background or "Overdue" label; empty state; row click navigates to detail
+- [x] T049 [US3] Implement `ApprovalDetailPage` in `web/src/pages/approver/ApprovalDetailPage.tsx`: full PO detail (read-only); approval deadline display; Approve button â†’ `Modal` confirmation â†’ `useApprovePo`; Reject button â†’ inline reason `<textarea>` (required, min 1 char) â†’ `useRejectPo`; on success navigate back to queue
+- [x] T050 [US3] Add approver routes to `web/src/router.tsx`: `/approver/queue` â†’ `ApprovalQueuePage`, `/approver/queue/:poId` â†’ `ApprovalDetailPage`
 
 **Checkpoint**: Approver can approve and reject POs independently. Validates quickstart.md Scenarios 3 and 4 (first half).
 
@@ -140,13 +140,13 @@
 
 ### Tests for US4 (TDD â€” write first, must fail before T055+)
 
-- [ ] T051 [US4] Write Playwright revision flow test in `web/tests/integration/buyer.flow.test.ts` (append): as BUYER â†’ open REVISION_REQUIRED PO â†’ rejection reason displayed prominently â†’ edit line item to change total â†’ resubmit â†’ status is Awaiting Approval
+- [x] T051 [US4] Write Playwright revision flow test in `web/tests/integration/buyer.flow.test.ts` (append): as BUYER â†’ open REVISION_REQUIRED PO â†’ rejection reason displayed prominently â†’ edit line item to change total â†’ resubmit â†’ status is Awaiting Approval
 
 ### Implementation for US4
 
-- [ ] T052 [US4] Update `PODetailPage` in `web/src/pages/buyer/PODetailPage.tsx`: when `status === 'REVISION_REQUIRED'` and `rejectionReason` is non-null, render a prominent rejection reason banner above the line items
-- [ ] T053 [US4] Verify `isEditable` guard in `PODetailPage` correctly enables edit controls for `REVISION_REQUIRED` status (same path as DRAFT â€” confirm no code change needed or fix if missing)
-- [ ] T054 [US4] Verify `POSubmitPage` handles submission from REVISION_REQUIRED state correctly (same submit API call â€” confirm the page renders and submit works when navigated from a REVISION_REQUIRED PO)
+- [x] T052 [US4] Update `PODetailPage` in `web/src/pages/buyer/PODetailPage.tsx`: when `status === 'REVISION_REQUIRED'` and `rejectionReason` is non-null, render a prominent rejection reason banner above the line items
+- [x] T053 [US4] Verify `isEditable` guard in `PODetailPage` correctly enables edit controls for `REVISION_REQUIRED` status (same path as DRAFT â€” confirm no code change needed or fix if missing)
+- [x] T054 [US4] Verify `POSubmitPage` handles submission from REVISION_REQUIRED state correctly (same submit API call â€” confirm the page renders and submit works when navigated from a REVISION_REQUIRED PO)
 
 **Checkpoint**: Full revision loop works â€” reject â†’ revise â†’ resubmit. Validates quickstart.md Scenario 4 (full).
 
@@ -160,15 +160,15 @@
 
 ### Tests for US5 (TDD â€” write first, must fail before T059+)
 
-- [ ] T055 [US5] Write contract test for `SupplierPOListPage` in `web/tests/contract/SupplierPOListPage.contract.test.tsx`: (1) only non-DRAFT POs shown; (2) Fulfill button visible only on SUBMITTED or APPROVED rows; (3) Fulfill button absent on FULFILLED/CANCELLED rows
-- [ ] T056 [P] [US5] Write Playwright supplier flow test in `web/tests/integration/supplier.flow.test.ts`: as SUPPLIER â†’ view PO list (only own non-draft POs) â†’ open SUBMITTED PO â†’ click Fulfill â†’ confirm modal â†’ status changes to Fulfilled
+- [x] T055 [US5] Write contract test for `SupplierPOListPage` in `web/tests/contract/SupplierPOListPage.contract.test.tsx`: (1) only non-DRAFT POs shown; (2) Fulfill button visible only on SUBMITTED or APPROVED rows; (3) Fulfill button absent on FULFILLED/CANCELLED rows
+- [x] T056 [P] [US5] Write Playwright supplier flow test in `web/tests/integration/supplier.flow.test.ts`: as SUPPLIER â†’ view PO list (only own non-draft POs) â†’ open SUBMITTED PO â†’ click Fulfill â†’ confirm modal â†’ status changes to Fulfilled
 
 ### Implementation for US5
 
-- [ ] T057 [US5] Add `useFulfillPo` mutation to `web/src/hooks/usePurchaseOrders.ts`: calls `purchaseOrders.fulfill(poId)`; on success invalidates list and detail
-- [ ] T058 [P] [US5] Implement `SupplierPOListPage` in `web/src/pages/supplier/SupplierPOListPage.tsx`: `usePoList` query (supplier role auto-filters non-Draft POs via backend); `Table` with `POStatusBadge`, poNumber, total, supplierId; Fulfill `Button` visible only when `status === 'SUBMITTED' || 'APPROVED'`; Fulfill click opens `Modal` confirmation â†’ `useFulfillPo`
-- [ ] T059 [US5] Implement `SupplierPODetailPage` in `web/src/pages/supplier/SupplierPODetailPage.tsx`: read-only PO detail with `LineItemRow` (editable=false); Fulfill `Button` (same visibility rule); `StatusHistory` (wired in Phase 8)
-- [ ] T060 [US5] Add supplier routes to `web/src/router.tsx`: `/supplier/po` â†’ `SupplierPOListPage`, `/supplier/po/:poId` â†’ `SupplierPODetailPage`
+- [x] T057 [US5] Add `useFulfillPo` mutation to `web/src/hooks/usePurchaseOrders.ts`: calls `purchaseOrders.fulfill(poId)`; on success invalidates list and detail
+- [x] T058 [P] [US5] Implement `SupplierPOListPage` in `web/src/pages/supplier/SupplierPOListPage.tsx`: `usePoList` query (supplier role auto-filters non-Draft POs via backend); `Table` with `POStatusBadge`, poNumber, total, supplierId; Fulfill `Button` visible only when `status === 'SUBMITTED' || 'APPROVED'`; Fulfill click opens `Modal` confirmation â†’ `useFulfillPo`
+- [x] T059 [US5] Implement `SupplierPODetailPage` in `web/src/pages/supplier/SupplierPODetailPage.tsx`: read-only PO detail with `LineItemRow` (editable=false); Fulfill `Button` (same visibility rule); `StatusHistory` (wired in Phase 8)
+- [x] T060 [US5] Add supplier routes to `web/src/router.tsx`: `/supplier/po` â†’ `SupplierPOListPage`, `/supplier/po/:poId` â†’ `SupplierPODetailPage`
 
 **Checkpoint**: Supplier can view and fulfill POs. Validates quickstart.md Scenario 5.
 
@@ -182,14 +182,14 @@
 
 ### Tests for US6 (TDD â€” write first, must fail before T064+)
 
-- [ ] T061 [US6] Write contract test for `StatusHistory` in `web/tests/contract/PODetailPage.contract.test.tsx` (append): (1) entries rendered oldest-first; (2) each entry shows fromStatus (or "â€”"), toStatus, changedById, changedAt formatted; (3) `note` displayed when non-null; (4) empty state "No status history yet" when entries is empty
+- [x] T061 [US6] Write contract test for `StatusHistory` in `web/tests/contract/PODetailPage.contract.test.tsx` (append): (1) entries rendered oldest-first; (2) each entry shows fromStatus (or "â€”"), toStatus, changedById, changedAt formatted; (3) `note` displayed when non-null; (4) empty state "No status history yet" when entries is empty
 
 ### Implementation for US6
 
-- [ ] T062 [US6] Implement `StatusHistory` component in `web/src/components/po/StatusHistory.tsx`: receives `entries: StatusHistoryEntry[]`; renders timeline list oldest-first; each item: fromStatus â†’ toStatus (with `POStatusBadge`), changedById, `formatDate(changedAt)`, and `note` block when non-null; empty state message
-- [ ] T063 [US6] Wire `StatusHistory` into `PODetailPage` in `web/src/pages/buyer/PODetailPage.tsx`: render `<StatusHistory entries={po.statusHistory} />` below line items
-- [ ] T064 [P] [US6] Wire `StatusHistory` into `SupplierPODetailPage` in `web/src/pages/supplier/SupplierPODetailPage.tsx`: render `<StatusHistory entries={po.statusHistory} />`
-- [ ] T065 [P] [US6] Wire `StatusHistory` into `ApprovalDetailPage` in `web/src/pages/approver/ApprovalDetailPage.tsx`: render `<StatusHistory entries={po.statusHistory} />`
+- [x] T062 [US6] Implement `StatusHistory` component in `web/src/components/po/StatusHistory.tsx`: receives `entries: StatusHistoryEntry[]`; renders timeline list oldest-first; each item: fromStatus â†’ toStatus (with `POStatusBadge`), changedById, `formatDate(changedAt)`, and `note` block when non-null; empty state message
+- [x] T063 [US6] Wire `StatusHistory` into `PODetailPage` in `web/src/pages/buyer/PODetailPage.tsx`: render `<StatusHistory entries={po.statusHistory} />` below line items
+- [x] T064 [P] [US6] Wire `StatusHistory` into `SupplierPODetailPage` in `web/src/pages/supplier/SupplierPODetailPage.tsx`: render `<StatusHistory entries={po.statusHistory} />`
+- [x] T065 [P] [US6] Wire `StatusHistory` into `ApprovalDetailPage` in `web/src/pages/approver/ApprovalDetailPage.tsx`: render `<StatusHistory entries={po.statusHistory} />`
 
 **Checkpoint**: Status history timeline visible for all roles. Validates quickstart.md Scenario 6.
 
@@ -199,12 +199,12 @@
 
 **Purpose**: Improvements that apply across all user stories and satisfy non-functional requirements.
 
-- [ ] T066 Configure TanStack Query `refetchInterval: 10_000` on `usePoDetail` and `useApprovalQueue` in `web/src/hooks/usePurchaseOrders.ts` and `web/src/hooks/useApprovals.ts` â€” verifies SC-006 (status visible within 15 seconds)
-- [ ] T067 [P] Add global `ErrorBoundary` wrapper in `web/src/main.tsx` that catches unhandled React errors and renders `<ErrorBanner>` fallback (prevents white screen on unexpected errors)
-- [ ] T068 [P] Audit all pages for responsive layout at 768px breakpoint using Tailwind `md:` prefix â€” `POListPage`, `PODetailPage`, `ApprovalQueuePage`, `SupplierPOListPage` must be usable on tablet (SC-005)
-- [ ] T069 [P] Add Tailwind `animate-pulse` loading skeleton states to `POListPage` and `ApprovalQueuePage` for initial query load (replaces blank table flash)
-- [ ] T070 Run quickstart.md validation Scenarios 1â€“8 manually against running dev servers and confirm all pass
-- [ ] T071 Verify frontend TypeScript build succeeds with no errors: `cd web && npm run build`
+- [x] T066 Configure TanStack Query `refetchInterval: 10_000` on `usePoDetail` and `useApprovalQueue` in `web/src/hooks/usePurchaseOrders.ts` and `web/src/hooks/useApprovals.ts` â€” verifies SC-006 (status visible within 15 seconds)
+- [x] T067 [P] Add global `ErrorBoundary` wrapper in `web/src/main.tsx` that catches unhandled React errors and renders `<ErrorBanner>` fallback (prevents white screen on unexpected errors)
+- [x] T068 [P] Audit all pages for responsive layout at 768px breakpoint using Tailwind `md:` prefix â€” `POListPage`, `PODetailPage`, `ApprovalQueuePage`, `SupplierPOListPage` must be usable on tablet (SC-005)
+- [x] T069 [P] Add Tailwind `animate-pulse` loading skeleton states to `POListPage` and `ApprovalQueuePage` for initial query load (replaces blank table flash)
+- [x] T070 Run quickstart.md validation Scenarios 1â€“8 manually against running dev servers and confirm all pass
+- [x] T071 Verify frontend TypeScript build succeeds with no errors: `cd web && npm run build`
 
 ---
 
