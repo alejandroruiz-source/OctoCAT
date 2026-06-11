@@ -1,5 +1,6 @@
 import Fastify, { FastifyInstance } from 'fastify'
 import { TypeBoxTypeProvider } from '@fastify/type-provider-typebox'
+import cors from '@fastify/cors'
 import authPlugin, { type AuthPluginOptions } from './plugins/auth'
 import swaggerPlugin from './plugins/swagger'
 import { type DrizzleDB } from '../lib/db/client'
@@ -16,6 +17,11 @@ export async function buildApp(db: DrizzleDB, opts: AppOptions = {}): Promise<Fa
   // Store db on fastify instance for route access
   app.decorate('db', db)
 
+  await app.register(cors, {
+    origin: process.env.CORS_ORIGIN ?? 'http://localhost:5173',
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    credentials: true,
+  })
   await app.register(swaggerPlugin)
   await app.register(authPlugin, opts.auth ?? {})
 
