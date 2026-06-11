@@ -16,3 +16,10 @@ Thumbs.db
 *.swp
 .vscode/
 .idea/
+web/dist/
+web/playwright-report
+web/test-results
+web/.env.local
+po.db
+po.db-shm
+po.db-wal
